@@ -672,6 +672,9 @@
     timer.phase = 'idle';
     document.body.classList.remove('solving');
 
+    // Best valid single before this solve, so a personal record can be spotted.
+    var previousBest = Stats.compute(solves()).best;
+
     var solve = {
       id: uid(),
       ms: Math.round(ms),
@@ -690,6 +693,67 @@
     renderSessions();
     paint();
     el.timer.textContent = penalty === 'DNF' ? 'DNF' : fmtTime(solve.ms + (penalty === '+2' ? 2000 : 0));
+
+    var finalMs = Stats.effective(solve);
+    if (previousBest != null && finalMs != null && finalMs < previousBest) {
+      celebrateRecord(finalMs, previousBest);
+    }
+  }
+
+  /* ---------------- personal record celebration ---------------- */
+
+  var CELEBRATION_MS = 2800;
+  var CONFETTI_COLORS = ['#ffd76a', '#ff9f43', '#4ade80', '#38bdf8', '#f472b6', '#f2f4f7'];
+  var celebrateTimer = 0;
+
+  function celebrateRecord(ms, previousBest) {
+    var gain = previousBest - ms;
+    var delta = '-' + (gain / 1000).toFixed(precision()) + 's';
+    el.prDelta.textContent = delta;
+
+    el.prBanner.classList.add('show');
+    spawnConfetti();
+    playCelebrationTone();
+
+    clearTimeout(celebrateTimer);
+    celebrateTimer = setTimeout(function () {
+      el.prBanner.classList.remove('show');
+      el.prConfetti.innerHTML = '';
+    }, CELEBRATION_MS);
+  }
+
+  function spawnConfetti() {
+    var host = el.prConfetti;
+    host.innerHTML = '';
+    var count = window.innerWidth < 520 ? 34 : 54;
+    for (var i = 0; i < count; i++) {
+      var piece = document.createElement('i');
+      var left = Math.random() * 100;
+      var w = 5 + Math.random() * 6;
+      var h = 8 + Math.random() * 11;
+      var dur = 1.6 + Math.random() * 1.3;
+      var delay = Math.random() * 0.35;
+      var dx = (Math.random() - 0.5) * 160;
+      var rot = 360 + Math.random() * 1080;
+      piece.style.left = left.toFixed(2) + '%';
+      piece.style.width = w.toFixed(1) + 'px';
+      piece.style.height = h.toFixed(1) + 'px';
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.animationDuration = dur.toFixed(2) + 's';
+      piece.style.animationDelay = delay.toFixed(2) + 's';
+      piece.style.setProperty('--dx', dx.toFixed(0) + 'px');
+      piece.style.setProperty('--rot', rot.toFixed(0) + 'deg');
+      if (i % 5 === 0) piece.style.borderRadius = '50%';
+      host.appendChild(piece);
+    }
+  }
+
+  function playCelebrationTone() {
+    if (!state.settings.beep) return;
+    var notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach(function (freq, i) {
+      setTimeout(function () { beep(freq, 130); }, i * 110);
+    });
   }
 
   /* ---------------- solve actions ---------------- */
@@ -998,6 +1062,10 @@
     el.setPrecision = document.getElementById('setPrecision');
     el.setTarget = document.getElementById('setTarget');
     el.toast = document.getElementById('toast');
+    el.prLayer = document.getElementById('prLayer');
+    el.prBanner = document.getElementById('prBanner');
+    el.prDelta = document.getElementById('prDelta');
+    el.prConfetti = document.getElementById('prConfetti');
   }
 
   function bind() {
