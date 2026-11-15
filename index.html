@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>큐브 타이머 — 스피드큐빙 기록</title>
+<meta name="description" content="WCA 방식 스크램블, 2D 전개도, 15초 인스펙션, WCA 통계를 갖춘 스피드큐빙 타이머.">
+<meta name="theme-color" content="#0d1117">
+<meta property="og:title" content="큐브 타이머">
+<meta property="og:description" content="스피드큐빙을 위한 타이머 · 스크램블 · 전개도 · 통계">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26">
+          <path d="M12 2 21 7v10l-9 5-9-5V7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M3 7l9 5 9-5M12 12v10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M3 7l9-5 9 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" opacity=".45"/>
+        </svg>
+      </span>
+      <div class="brand-text">
+        <h1>큐브 타이머</h1>
+        <p>스피드큐빙 기록 · 스크램블 · 전개도</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <label class="field">
+        <span class="field-label">종목</span>
+        <select id="eventSelect" aria-label="종목 선택">
+          <option value="333">3x3x3</option>
+          <option value="222">2x2x2</option>
+          <option value="444">4x4x4</option>
+          <option value="pyra">Pyraminx</option>
+        </select>
+      </label>
+      <button class="icon-btn" id="themeBtn" type="button" title="테마 전환" aria-label="테마 전환">
+        <svg class="ic-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></g></svg>
+        <svg class="ic-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2z" fill="currentColor"/></svg>
+      </button>
+      <button class="icon-btn" id="settingsBtn" type="button" title="설정" aria-label="설정">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.2v2.1M12 18.7v2.1M4.1 12H2M22 12h-2.1M6.4 6.4 4.9 4.9M19.1 19.1l-1.5-1.5M17.6 6.4l1.5-1.5M4.9 19.1l1.5-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card scramble-card" id="scrambleCard">
+      <div class="card-head">
+        <div class="head-left">
+          <span class="label">스크램블</span>
+          <span class="counter" id="scrambleCounter"></span>
+        </div>
+        <div class="head-actions">
+          <button class="ghost-btn" id="prevScramble" type="button" title="이전 스크램블" aria-label="이전 스크램블">‹</button>
+          <button class="ghost-btn" id="nextScramble" type="button" title="다음 스크램블" aria-label="다음 스크램블">›</button>
+          <button class="ghost-btn" id="newScramble" type="button">새 스크램블</button>
+        </div>
+      </div>
+      <div class="scramble-body">
+        <p class="scramble" id="scrambleText" title="클릭하면 복사됩니다" tabindex="0" role="button">—</p>
+        <div class="net-wrap">
+          <div class="net" id="net" aria-label="스크램블이 적용된 2D 전개도"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="timer-zone" id="timerZone" aria-label="타이머">
+      <div class="timer-meta">
+        <span class="penalty-flag" id="penaltyFlag" hidden>+2</span>
+        <span class="inspect-flag" id="inspectFlag" hidden></span>
+      </div>
+      <div class="timer" id="timer">0.00</div>
+      <p class="timer-hint" id="timerHint">스페이스바를 0.3초 이상 누르면 준비, 떼면 시작</p>
+    </section>
+
+    <section class="card last-card" id="lastCard">
+      <div class="last-row">
+        <div class="last-main">
+          <span class="label">직전 기록</span>
+          <div class="last-time">
+            <span id="lastTime">—</span>
+            <span class="badge" id="lastBadge" hidden></span>
+          </div>
+        </div>
+        <div class="last-actions" id="lastActions">
+          <button class="chip" data-act="plus2" type="button">+2</button>
+          <button class="chip" data-act="dnf" type="button">DNF</button>
+          <button class="chip chip-danger" data-act="del" type="button">삭제</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="card stats-card">
+        <div class="card-head">
+          <div class="head-left">
+            <span class="label">통계</span>
+            <span class="counter" id="statSession"></span>
+          </div>
+        </div>
+        <div class="stats-grid" id="statsGrid"></div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="card-head">
+          <div class="head-left">
+            <span class="label">기록 추이</span>
+            <span class="counter" id="chartCounter"></span>
+          </div>
+          <div class="head-actions">
+            <span class="target-pill" id="targetPill">목표 30초</span>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartWrap"></div>
+      </section>
+    </div>
+
+    <section class="card records-card">
+      <div class="card-head">
+        <div class="head-left">
+          <span class="label">기록</span>
+          <span class="counter" id="recordCount"></span>
+        </div>
+        <div class="head-actions records-actions">
+          <select id="sessionSelect" aria-label="세션 선택"></select>
+          <button class="ghost-btn" id="newSession" type="button">새 세션</button>
+          <button class="ghost-btn" id="renameSession" type="button">이름 변경</button>
+          <button class="ghost-btn" id="resetSession" type="button">초기화</button>
+          <button class="ghost-btn" id="deleteSession" type="button">세션 삭제</button>
+          <span class="sep" aria-hidden="true"></span>
+          <button class="ghost-btn" id="exportCsv" type="button">CSV</button>
+          <button class="ghost-btn" id="exportJson" type="button">JSON</button>
+        </div>
+      </div>
+      <ol class="solve-list" id="solveList"></ol>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>기록은 이 브라우저에만 저장됩니다 (localStorage).</span>
+    <span class="kbd-hint"><kbd>Space</kbd> 타이머 · <kbd>Esc</kbd> 취소 · <kbd>←</kbd> <kbd>→</kbd> 스크램블</span>
+  </footer>
+</div>
+
+<dialog class="dlg" id="detailDialog">
+  <form method="dialog" class="dlg-inner">
+    <div class="dlg-head">
+      <h2>기록 상세</h2>
+      <button class="icon-btn" value="close" aria-label="닫기">✕</button>
+    </div>
+    <div class="dlg-time" id="dlgTime">—</div>
+    <dl class="dlg-meta">
+      <div><dt>원본 시간</dt><dd id="dlgRaw">—</dd></div>
+      <div><dt>페널티</dt><dd id="dlgPenalty">없음</dd></div>
+      <div><dt>기록 시각</dt><dd id="dlgDate">—</dd></div>
+      <div><dt>스크램블</dt><dd id="dlgScramble" class="mono">—</dd></div>
+    </dl>
+    <div class="dlg-actions">
+      <button class="chip" type="button" id="dlgPlus2">+2</button>
+      <button class="chip" type="button" id="dlgDnf">DNF</button>
+      <button class="chip chip-danger" type="button" id="dlgDelete">삭제</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg" id="settingsDialog">
+  <form method="dialog" class="dlg-inner">
+    <div class="dlg-head">
+      <h2>설정</h2>
+      <button class="icon-btn" value="close" aria-label="닫기">✕</button>
+    </div>
+    <div class="setting-row">
+      <div>
+        <span class="setting-name">15초 인스펙션</span>
+        <span class="setting-desc">8초·12초 경고, 15초 초과 +2, 17초 초과 DNF</span>
+      </div>
+      <label class="switch"><input type="checkbox" id="setInspection"><span></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <span class="setting-name">경고 비프음</span>
+        <span class="setting-desc">인스펙션 8초·12초에 소리로 알림</span>
+      </div>
+      <label class="switch"><input type="checkbox" id="setBeep"><span></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <span class="setting-name">표시 정밀도</span>
+        <span class="setting-desc">타이머 소수 자릿수</span>
+      </div>
+      <select id="setPrecision" aria-label="표시 정밀도">
+        <option value="2">0.01초</option>
+        <option value="3">0.001초</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div>
+        <span class="setting-name">목표 기록</span>
+        <span class="setting-desc">추이 그래프에 기준선으로 표시 (초)</span>
+      </div>
+      <input type="number" id="setTarget" min="1" max="600" step="0.5" class="num-input" aria-label="목표 기록(초)">
+    </div>
+    <p class="dlg-note">모든 설정은 이 브라우저에 저장됩니다.</p>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/cube.js"></script>
+<script src="assets/scramble.js"></script>
+<script src="assets/stats.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
