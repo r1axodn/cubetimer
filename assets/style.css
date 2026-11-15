@@ -409,6 +409,35 @@ kbd {
 .switch input:checked + span { background: var(--accent); }
 .switch input:checked + span::after { transform: translateX(18px); }
 
+/* ---------- personal record celebration ---------- */
+.pr-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.pr-banner {
+  position: absolute; left: 50%; top: 12vh;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 20px; border-radius: 999px;
+  background: linear-gradient(135deg, #ffd76a, #ff9f43 70%, #ffb347);
+  color: #241504; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 14px 36px rgba(255, 168, 60, .38), inset 0 0 0 1px rgba(255, 255, 255, .45);
+  opacity: 0; transform: translate(-50%, -18px) scale(.86);
+  transition: opacity .26s ease, transform .36s cubic-bezier(.2, 1.25, .35, 1);
+}
+.pr-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.pr-badge { font-size: 15px; letter-spacing: .05em; }
+.pr-delta {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  background: rgba(36, 21, 4, .16); padding: 3px 9px; border-radius: 999px;
+}
+.pr-confetti { position: absolute; inset: 0; }
+.pr-confetti i {
+  position: absolute; top: -24px; border-radius: 2px;
+  animation-name: pr-fall; animation-timing-function: cubic-bezier(.25, .6, .5, 1);
+  animation-fill-mode: forwards; animation-iteration-count: 1;
+}
+@keyframes pr-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--dx, 0px), 104vh, 0) rotate(var(--rot, 720deg)); opacity: .85; }
+}
+
 /* ---------- toast ---------- */
 .toast {
   position: fixed;
@@ -449,4 +478,7 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
+  .pr-confetti { display: none; }
+  .pr-banner { transition: opacity .2s linear; transform: translate(-50%, 0); }
+  .pr-banner.show { transform: translate(-50%, 0); }
 }
