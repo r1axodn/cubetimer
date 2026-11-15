@@ -10,7 +10,7 @@
 <meta property="og:title" content="큐브 타이머">
 <meta property="og:description" content="스피드큐빙을 위한 타이머 · 스크램블 · 전개도 · 통계">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/style.css?v=5">
+<link rel="stylesheet" href="assets/style.css?v=6">
 </head>
 <body>
 <div class="app">
@@ -47,6 +47,22 @@
       <button class="icon-btn" id="settingsBtn" type="button" title="설정" aria-label="설정">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.2v2.1M12 18.7v2.1M4.1 12H2M22 12h-2.1M6.4 6.4 4.9 4.9M19.1 19.1l-1.5-1.5M17.6 6.4l1.5-1.5M4.9 19.1l1.5-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
+      <div class="acct-wrap">
+        <button class="acct-btn" id="acctBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="acctMenu" title="로그인하면 기록이 계정에 자동 백업됩니다">
+          <span class="acct-dot" aria-hidden="true"></span>
+          <span class="acct-label" id="acctLabel">로그인 / 백업</span>
+          <span class="acct-state" id="acctState" hidden></span>
+        </button>
+        <div class="acct-menu" id="acctMenu" hidden>
+          <div class="acct-menu-head">
+            <span class="acct-email" id="acctEmail">—</span>
+            <span class="acct-status" id="acctStatus">로그인하지 않음</span>
+          </div>
+          <p class="acct-note" id="acctNote" hidden></p>
+          <button class="acct-item" id="acctBackupNow" type="button">지금 백업</button>
+          <button class="acct-item danger" id="acctLogout" type="button">로그아웃</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -144,7 +160,7 @@
   </main>
 
   <footer class="footer">
-    <span>기록은 이 브라우저에만 저장됩니다 (localStorage).</span>
+    <span>기록은 이 브라우저에 저장되고, 로그인하면 계정에도 자동 백업됩니다.</span>
     <span class="kbd-hint"><kbd>Space</kbd> 타이머 · <kbd>Esc</kbd> 취소 · <kbd>←</kbd> <kbd>→</kbd> 스크램블</span>
   </footer>
 </div>
@@ -211,6 +227,33 @@
   </form>
 </dialog>
 
+<dialog class="dlg" id="authDialog">
+  <form class="dlg-inner" id="authForm" novalidate>
+    <div class="dlg-head">
+      <h2>로그인 / 백업</h2>
+      <button class="icon-btn" id="authClose" type="button" aria-label="닫기">✕</button>
+    </div>
+    <div class="auth-tabs" role="tablist" aria-label="로그인 또는 회원가입">
+      <button class="auth-tab is-active" id="tabSignIn" type="button" role="tab" aria-selected="true">로그인</button>
+      <button class="auth-tab" id="tabSignUp" type="button" role="tab" aria-selected="false">회원가입</button>
+    </div>
+    <label class="auth-field">
+      <span>이메일</span>
+      <input type="email" id="authEmail" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" placeholder="you@example.com">
+    </label>
+    <label class="auth-field">
+      <span>비밀번호</span>
+      <input type="password" id="authPassword" autocomplete="current-password" placeholder="6자 이상">
+    </label>
+    <p class="auth-msg" id="authMsg" role="status" aria-live="polite" hidden></p>
+    <div class="dlg-actions">
+      <button class="chip primary" id="authSubmit" type="button">로그인</button>
+      <button class="chip" id="authCancel" type="button">취소</button>
+    </div>
+    <p class="dlg-note">로그인하면 기록이 계정에 자동으로 백업되고, 다른 기기에서도 이어서 쓸 수 있어요. 비밀번호는 6자 이상이어야 합니다.</p>
+  </form>
+</dialog>
+
 <div class="pr-layer" id="prLayer" aria-live="polite" aria-atomic="true">
   <div class="pr-banner" id="prBanner" aria-hidden="true">
     <span class="pr-badge">NEW PR!</span>
@@ -221,9 +264,11 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="assets/cube.js?v=5"></script>
-<script src="assets/scramble.js?v=5"></script>
-<script src="assets/stats.js?v=5"></script>
-<script src="assets/app.js?v=5"></script>
+<script src="assets/cube.js?v=6"></script>
+<script src="assets/scramble.js?v=6"></script>
+<script src="assets/stats.js?v=6"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+<script src="assets/cloud.js?v=6"></script>
+<script src="assets/app.js?v=6"></script>
 </body>
 </html>

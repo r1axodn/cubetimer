@@ -19,6 +19,7 @@
 
   var scrambleBook = {};
   var detailId = null;
+  var syncingDown = false;   // 서버 병합 결과를 적용하는 중에는 다시 업로드하지 않는다
 
   var timer = {
     phase: 'idle',      // idle | holding | ready | inspect | running
@@ -54,7 +55,7 @@
     }
   }
 
-  function save() {
+  function save(silent) {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         version: 1,
@@ -65,6 +66,8 @@
     } catch (err) {
       /* Private mode or full quota: the timer keeps working in memory. */
     }
+    // 로그인 상태라면 클라우드 백업을 2.5초 디바운스로 예약한다.
+    if (!silent && !syncingDown && window.CubeCloud) window.CubeCloud.notifyLocalChange();
   }
 
   function ensureEvent(ev) {
@@ -1014,6 +1017,250 @@
     renderAll();
   }
 
+  /* ---------------- cloud account UI ---------------- */
+
+  var CLOUD_LABEL = {
+    off: '',
+    syncing: '불러오는 중…',
+    saving: '저장 중…',
+    synced: '동기화됨',
+    offline: '오프라인',
+    setup: 'DB 설정 필요',
+    error: '저장 실패'
+  };
+
+  var CLOUD_NOTE = {
+    setup: '아직 DB 테이블(또는 접근 권한)이 없어요. Supabase SQL을 한 번 실행하면 자동 백업이 시작됩니다. 기록은 계속 이 브라우저에 저장됩니다.',
+    offline: '오프라인 상태예요. 연결되면 자동으로 다시 저장합니다.',
+    error: '마지막 저장에 실패했어요. “지금 백업”을 눌러 다시 시도해 주세요.'
+  };
+
+  var authMode = 'signin';
+  var authBusy = false;
+
+  function shortEmail(email) {
+    if (!email) return '';
+    if (email.length <= 22) return email;
+    var at = email.indexOf('@');
+    if (at > 0) {
+      var local = email.slice(0, at);
+      var domain = email.slice(at);
+      if (local.length > 9) local = local.slice(0, 9) + '…';
+      return local + domain;
+    }
+    return email.slice(0, 20) + '…';
+  }
+
+  function toggleAccountMenu(open) {
+    if (!el.acctMenu || !el.acctBtn) return;
+    var next = open === undefined ? el.acctMenu.hidden : !!open;
+    el.acctMenu.hidden = !next;
+    el.acctBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
+  }
+
+  function renderAccount() {
+    if (!el.acctBtn) return;
+    var cloud = window.CubeCloud;
+    var user = cloud && cloud.user ? cloud.user() : null;
+    var st = cloud && cloud.status ? cloud.status() : 'off';
+    var text = CLOUD_LABEL[st] || '';
+
+    el.acctBtn.classList.toggle('is-on', !!user);
+    ['syncing', 'saving', 'synced', 'offline', 'setup', 'error'].forEach(function (k) {
+      el.acctBtn.classList.toggle('st-' + k, !!user && st === k);
+    });
+
+    if (user) {
+      el.acctLabel.textContent = shortEmail(user.email);
+      el.acctState.hidden = false;
+      el.acctState.textContent = text;
+      el.acctBtn.title = (user.email || '') + (text ? ' · ' + text : '');
+      el.acctBtn.setAttribute('aria-label', '계정 메뉴 — ' + (user.email || '') + ' ' + text);
+    } else {
+      el.acctLabel.textContent = '로그인 / 백업';
+      el.acctState.hidden = true;
+      el.acctState.textContent = '';
+      el.acctBtn.title = '로그인하면 기록이 계정에 자동 백업됩니다';
+      el.acctBtn.setAttribute('aria-label', '로그인 또는 회원가입');
+      toggleAccountMenu(false);
+    }
+
+    el.acctEmail.textContent = user ? (user.email || '—') : '—';
+    el.acctStatus.textContent = user ? (text || '로그인됨') : '로그인하지 않음';
+    var note = user ? (CLOUD_NOTE[st] || '') : '';
+    el.acctNote.textContent = note;
+    el.acctNote.hidden = !note;
+  }
+
+  function setAuthMsg(text, kind) {
+    if (!el.authMsg) return;
+    el.authMsg.textContent = text || '';
+    el.authMsg.hidden = !text;
+    el.authMsg.className = 'auth-msg' + (kind ? ' ' + kind : '');
+  }
+
+  function setAuthBusy(busy) {
+    authBusy = !!busy;
+    el.authSubmit.disabled = authBusy;
+    el.tabSignIn.disabled = authBusy;
+    el.tabSignUp.disabled = authBusy;
+    el.authSubmit.textContent = authBusy
+      ? (authMode === 'signin' ? '로그인 중…' : '가입 중…')
+      : (authMode === 'signin' ? '로그인' : '회원가입');
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode === 'signup' ? 'signup' : 'signin';
+    var signup = authMode === 'signup';
+    el.tabSignIn.classList.toggle('is-active', !signup);
+    el.tabSignUp.classList.toggle('is-active', signup);
+    el.tabSignIn.setAttribute('aria-selected', signup ? 'false' : 'true');
+    el.tabSignUp.setAttribute('aria-selected', signup ? 'true' : 'false');
+    el.authPassword.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+    setAuthMsg('', '');
+    setAuthBusy(authBusy);
+  }
+
+  function authErrorText(err) {
+    var raw = err && (err.message || err.error_description || err.msg) || '';
+    var code = String(err && (err.code || err.error_code) || '');
+    var low = String(raw).toLowerCase();
+
+    if (code === 'sdk_unavailable') return '백업 기능을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.';
+    if (code === 'invalid_credentials' || /invalid login credentials/.test(low)) return '이메일 또는 비밀번호가 올바르지 않아요.';
+    if (code === 'email_not_confirmed' || /email not confirmed/.test(low)) return '이메일 인증이 아직이에요. 받은 확인 메일의 링크를 먼저 눌러 주세요.';
+    if (code === 'user_already_exists' || /already registered|already been registered|user already exists/.test(low)) return '이미 가입된 이메일이에요. 로그인 탭에서 로그인해 주세요.';
+    if (/password should be at least|password is too short|password.*at least 6/.test(low)) return '비밀번호는 6자 이상이어야 해요.';
+    if (/weak.?password|password should contain/.test(low)) return '더 안전한 비밀번호를 사용해 주세요. (영문·숫자 조합 권장)';
+    if (/unable to validate email|invalid email|invalid format/.test(low)) return '이메일 형식을 확인해 주세요.';
+    if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit|too many requests/.test(low)) return '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.';
+    if (/signups? not allowed|signup is disabled/.test(low)) return '지금은 회원가입을 받지 않는 상태예요.';
+    if (/failed to fetch|networkerror|load failed|network request failed/.test(low) || Number(err && err.status) === 0) return '네트워크에 연결할 수 없어요. 연결을 확인해 주세요.';
+    return raw ? '로그인에 실패했어요: ' + raw : '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+  }
+
+  function openAuthDialog() {
+    if (!window.CubeCloud || !window.CubeCloud.hasSdk()) {
+      toast('백업 기능을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요');
+      return;
+    }
+    setAuthMode('signin');
+    setAuthBusy(false);
+    el.authEmail.value = '';
+    el.authPassword.value = '';
+    if (el.authDialog.showModal) el.authDialog.showModal();
+    else el.authDialog.setAttribute('open', '');
+    setTimeout(function () { el.authEmail.focus(); }, 50);
+  }
+
+  function closeAuthDialog() {
+    if (el.authDialog.open) el.authDialog.close();
+    else el.authDialog.removeAttribute('open');
+    setAuthBusy(false);
+    setAuthMsg('', '');
+  }
+
+  async function submitAuth() {
+    if (authBusy) return;
+    var email = String(el.authEmail.value || '').trim();
+    var pw = String(el.authPassword.value || '');
+
+    if (!email) { setAuthMsg('이메일을 입력해 주세요.', 'warn'); el.authEmail.focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setAuthMsg('이메일 형식을 확인해 주세요.', 'warn'); el.authEmail.focus(); return; }
+    if (pw.length < 6) { setAuthMsg('비밀번호는 6자 이상이어야 해요.', 'warn'); el.authPassword.focus(); return; }
+
+    var cloud = window.CubeCloud;
+    if (!cloud || !cloud.hasSdk()) {
+      setAuthMsg('백업 기능을 불러오지 못했어요. 네트워크를 확인한 뒤 새로고침해 주세요.', 'warn');
+      return;
+    }
+
+    setAuthBusy(true);
+    setAuthMsg(authMode === 'signin' ? '로그인 중…' : '가입하는 중…', 'info');
+
+    var res;
+    try {
+      res = authMode === 'signin' ? await cloud.signIn(email, pw) : await cloud.signUp(email, pw);
+    } catch (err) {
+      res = { error: err };
+    }
+    setAuthBusy(false);
+
+    if (!res || res.error) {
+      setAuthMsg(authErrorText(res && res.error), 'warn');
+      return;
+    }
+    if (res.pendingConfirm) {
+      setAuthMode('signin');
+      setAuthMsg('확인 메일을 보냈어요. 메일 링크를 누른 뒤 로그인해 주세요.', 'info');
+      el.authPassword.value = '';
+      return;
+    }
+    closeAuthDialog();
+    toast('로그인했어요. 기록을 백업합니다');
+  }
+
+  function cloudPayload() {
+    return {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      event: state.event,
+      settings: state.settings,
+      sessions: JSON.parse(JSON.stringify(state.sessions || {}))
+    };
+  }
+
+  function applyCloudPayload(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    syncingDown = true;
+    try {
+      if (payload.settings && typeof payload.settings === 'object') {
+        state.settings = Object.assign({}, DEFAULT_SETTINGS, payload.settings);
+      }
+      if (payload.sessions && typeof payload.sessions === 'object') {
+        var next = {};
+        Object.keys(payload.sessions).forEach(function (ev) {
+          var bucket = payload.sessions[ev];
+          if (!bucket || typeof bucket !== 'object') return;
+          var list = (Array.isArray(bucket.list) ? bucket.list : []).filter(function (s) { return s && s.id; });
+          next[ev] = {
+            active: bucket.active || null,
+            list: list.map(function (s) {
+              return {
+                id: s.id,
+                name: s.name || '세션',
+                solves: (Array.isArray(s.solves) ? s.solves : []).filter(function (sv) { return sv && sv.id; })
+              };
+            })
+          };
+        });
+        state.sessions = next;
+      }
+      if (payload.event && EVENT_LABEL[payload.event]) state.event = payload.event;
+      ensureEvent(state.event);
+      applyTheme();
+      syncSettingsUi();
+      el.eventSelect.value = state.event;
+      book(state.event);
+      if (book(state.event).idx < 0) makeScramble();
+      save(true);
+      renderAll();
+    } finally {
+      syncingDown = false;
+    }
+  }
+
+  function initCloud() {
+    if (!window.CubeCloud) return;
+    window.CubeCloud.init({
+      getPayload: cloudPayload,
+      applyPayload: applyCloudPayload,
+      onStatus: function () { renderAccount(); },
+      onNotice: function (text) { toast(text); }
+    });
+    renderAccount();
+  }
+
   /* ---------------- wiring ---------------- */
 
   function cache() {
@@ -1068,6 +1315,25 @@
     el.prBanner = document.getElementById('prBanner');
     el.prDelta = document.getElementById('prDelta');
     el.prConfetti = document.getElementById('prConfetti');
+    el.acctBtn = document.getElementById('acctBtn');
+    el.acctLabel = document.getElementById('acctLabel');
+    el.acctState = document.getElementById('acctState');
+    el.acctMenu = document.getElementById('acctMenu');
+    el.acctEmail = document.getElementById('acctEmail');
+    el.acctStatus = document.getElementById('acctStatus');
+    el.acctNote = document.getElementById('acctNote');
+    el.acctBackupNow = document.getElementById('acctBackupNow');
+    el.acctLogout = document.getElementById('acctLogout');
+    el.authDialog = document.getElementById('authDialog');
+    el.authForm = document.getElementById('authForm');
+    el.authEmail = document.getElementById('authEmail');
+    el.authPassword = document.getElementById('authPassword');
+    el.authMsg = document.getElementById('authMsg');
+    el.authSubmit = document.getElementById('authSubmit');
+    el.authCancel = document.getElementById('authCancel');
+    el.authClose = document.getElementById('authClose');
+    el.tabSignIn = document.getElementById('tabSignIn');
+    el.tabSignUp = document.getElementById('tabSignUp');
   }
 
   function bind() {
@@ -1075,6 +1341,7 @@
     window.addEventListener('keydown', function (e) {
       var tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (e.key === 'Escape' && el.acctMenu && !el.acctMenu.hidden) { toggleAccountMenu(false); return; }
       if (document.querySelector('dialog[open]')) return;
       if (e.code === 'Space') e.preventDefault();
       if (e.repeat) return;
@@ -1305,6 +1572,45 @@
         el.timer.textContent = fmtTime(performance.now() - timer.startTime);
       }
     });
+
+    // account / cloud backup
+    el.acctBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var user = window.CubeCloud && window.CubeCloud.user ? window.CubeCloud.user() : null;
+      if (!user) { openAuthDialog(); return; }
+      toggleAccountMenu();
+    });
+    document.addEventListener('click', function (e) {
+      if (!el.acctMenu || el.acctMenu.hidden) return;
+      if (el.acctMenu.contains(e.target) || el.acctBtn.contains(e.target)) return;
+      toggleAccountMenu(false);
+    });
+    el.acctBackupNow.addEventListener('click', function () {
+      var cloud = window.CubeCloud;
+      toggleAccountMenu(false);
+      if (!cloud || !cloud.backupNow) return;
+      toast('백업하는 중…');
+      cloud.backupNow().then(function (ok) {
+        toast(ok ? '백업했습니다' : '백업하지 못했어요. 상태를 확인해 주세요');
+      }, function () { toast('백업하지 못했어요'); });
+    });
+    el.acctLogout.addEventListener('click', function () {
+      var cloud = window.CubeCloud;
+      toggleAccountMenu(false);
+      if (!cloud || !cloud.signOut) return;
+      cloud.signOut().then(function () {
+        toast('로그아웃했어요. 기록은 이 브라우저에 남아 있습니다');
+      });
+    });
+
+    // auth dialog
+    el.tabSignIn.addEventListener('click', function () { setAuthMode('signin'); });
+    el.tabSignUp.addEventListener('click', function () { setAuthMode('signup'); });
+    el.authForm.addEventListener('submit', function (e) { e.preventDefault(); submitAuth(); });
+    el.authSubmit.addEventListener('click', function () { submitAuth(); });
+    el.authClose.addEventListener('click', function () { closeAuthDialog(); });
+    el.authCancel.addEventListener('click', function () { closeAuthDialog(); });
+    el.authDialog.addEventListener('cancel', function (e) { e.preventDefault(); closeAuthDialog(); });
   }
 
   function selectNode(node) {
@@ -1326,6 +1632,7 @@
     el.eventSelect.value = state.event;
     book(state.event).list = book(state.event).list || [];
     bind();
+    initCloud();
     if (book(state.event).idx < 0) makeScramble();
     renderAll();
   }
@@ -1337,7 +1644,8 @@
     },
     stats: Stats,
     generate: function (ev) { return Scramble.generate(ev || '333'); },
-    get state() { return state; }
+    get state() { return state; },
+    get cloud() { return window.CubeCloud || null; }
   };
 
   if (document.readyState === 'loading') {
