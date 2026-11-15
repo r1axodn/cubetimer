@@ -340,7 +340,11 @@
   async function signUp(email, password) {
     if (!client) return { error: sdkError() };
     try {
-      var res = await client.auth.signUp({ email: email, password: password });
+      var res = await client.auth.signUp({
+        email: email,
+        password: password,
+        options: { emailRedirectTo: window.location.origin + window.location.pathname }
+      });
       if (res && res.error) return { error: res.error };
       var session = res && res.data ? res.data.session : null;
       if (session) {
