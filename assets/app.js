@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var STORE_KEY = 'cube-timer:v1';
+  var STORE_KEY = 'cubetimer:v1';
   var HOLD_MS = 300;
   var INSPECT_LIMIT = 15;
   var INSPECT_DNF = 17;
@@ -899,13 +899,13 @@
         new Date(s.ts).toISOString()
       ]);
     });
-    download('cube-timer-' + state.event + '-' + stamp() + '.csv', '\ufeff' + rows.map(function (r) { return r.join(','); }).join('\r\n'), 'text/csv');
+    download('cubetimer-' + state.event + '-' + stamp() + '.csv', '\ufeff' + rows.map(function (r) { return r.join(','); }).join('\r\n'), 'text/csv');
     toast('CSV로 내보냈습니다');
   }
 
   function exportJson() {
     var payload = {
-      app: 'cube-timer',
+      app: 'cubetimer',
       version: 1,
       exportedAt: new Date().toISOString(),
       event: state.event,
@@ -913,7 +913,7 @@
       session: { name: session().name, solves: solves() }
     };
     if (!solves().length) { toast('내보낼 기록이 없습니다'); return; }
-    download('cube-timer-' + state.event + '-' + stamp() + '.json', JSON.stringify(payload, null, 2), 'application/json');
+    download('cubetimer-' + state.event + '-' + stamp() + '.json', JSON.stringify(payload, null, 2), 'application/json');
     toast('JSON으로 내보냈습니다');
   }
 

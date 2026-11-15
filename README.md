@@ -2,7 +2,7 @@
 
 스피드큐빙을 위한 브라우저 타이머. 설치 없이 열면 바로 쓸 수 있고, 기록은 브라우저(localStorage)에만 저장됩니다.
 
-**바로 쓰기 → https://r1axodn.github.io/cube-timer/**
+**바로 쓰기 → https://r1axodn.github.io/cubetimer/**
 
 ## 기능
 
