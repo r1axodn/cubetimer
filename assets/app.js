@@ -711,6 +711,7 @@
     var delta = '-' + (gain / 1000).toFixed(precision()) + 's';
     el.prDelta.textContent = delta;
 
+    el.prBanner.setAttribute('aria-hidden', 'false');
     el.prBanner.classList.add('show');
     spawnConfetti();
     playCelebrationTone();
@@ -718,6 +719,7 @@
     clearTimeout(celebrateTimer);
     celebrateTimer = setTimeout(function () {
       el.prBanner.classList.remove('show');
+      el.prBanner.setAttribute('aria-hidden', 'true');
       el.prConfetti.innerHTML = '';
     }, CELEBRATION_MS);
   }
