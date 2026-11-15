@@ -3,7 +3,7 @@
   'use strict';
 
   var STORE_KEY = 'cubetimer:v1';
-  var HOLD_MS = 300;
+  var HOLD_MS = 500;
   var INSPECT_LIMIT = 15;
   var INSPECT_DNF = 17;
   var MAX_CHART = 50;
@@ -393,7 +393,7 @@
     if (!list.length) {
       var li = document.createElement('li');
       li.className = 'list-empty';
-      li.textContent = '아직 기록이 없습니다. 스페이스바를 0.3초 이상 눌렀다 떼어 보세요.';
+      li.textContent = '아직 기록이 없습니다. 스페이스바나 화면을 0.5초 이상 눌렀다 떼어 보세요.';
       ol.appendChild(li);
       return;
     }
@@ -987,8 +987,8 @@
 
   function updateHint() {
     el.timerHint.textContent = state.settings.inspection
-      ? '스페이스바로 인스펙션 시작 · 0.3초 이상 눌렀다 떼면 측정'
-      : '스페이스바를 0.3초 이상 누르면 준비, 떼면 시작';
+      ? '스페이스바로 인스펙션 시작 · 0.5초 이상 눌렀다 떼면 측정'
+      : '스페이스바 또는 화면을 0.5초 이상 누르면 준비, 떼면 시작';
   }
 
   function syncSettingsUi() {
@@ -1113,6 +1113,15 @@
     });
     window.addEventListener('pointerup', function () { pressEnd(); });
     window.addEventListener('pointercancel', function () { pressEnd(); });
+    // While a solve is running, a press anywhere on the page ends it. The press
+    // is swallowed here so it cannot also start a new hold in the timer zone and
+    // so a drag cannot scroll the page or start a text selection mid-solve.
+    document.addEventListener('pointerdown', function (e) {
+      if (timer.phase !== 'running') return;
+      e.preventDefault();
+      e.stopPropagation();
+      stopSolve();
+    }, true);
     el.timerZone.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
     // scramble
